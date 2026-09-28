@@ -10,9 +10,24 @@ import { Post } from '../../models/post.model';
 import { PostsService } from '../../services/posts.service';
 import { PageEvent } from '@angular/material/paginator';
 import { ActivatedRoute } from '@angular/router';
-import Swal from 'sweetalert2';
 import { DownloadService } from 'src/app/services/download.service';
+import { ToastrService } from 'ngx-toastr';
 import jsPDF from 'jspdf';
+import { confirmDelete } from 'src/app/shared/confirm-dialog';
+import { formatDateRange } from 'src/app/shared/date-range';
+import { PLACE_VALUES, PlaceValue, placeValueMeta } from 'src/app/shared/place-values';
+import { DAY_MS, TripTiming, dayStart, statusLabel, tripTiming } from 'src/app/shared/trip-timing';
+
+interface TimelineDay {
+  key: string;
+  count: number;
+  /** "Day 2" when the visit falls within the trip */
+  dayLabel: string;
+  dateLabel: string;
+  posts: Post[];
+}
+
+const VIEW_KEY = 'journhive.placesView';
 
 @Component({
   selector: 'app-post-list',
@@ -32,30 +47,55 @@ export class PostListComponent implements OnInit, OnDestroy {
   paginatedPosts: Post[] = [];
   tripId: string | null = null;
   tripName: string | null = null;
+  tripTitle: string = '';
+  tripDates: string = '';
+  tripCover: string | null = null;
+  tripStart: Date | null = null;
+  tripEnd: Date | null = null;
+  timing: TripTiming | null = null;
   isLoading: boolean = true;
+
+  // Itinerary view: grouped by day, or the card grid
+  viewMode: 'timeline' | 'grid' = 'timeline';
+  timelineDays: TimelineDay[] = [];
+
+  // Sidebar insights, derived from the places
+  ratingStats: (PlaceValue & { count: number, pct: number })[] = [];
+  ratedCount = 0;
+  photoCount = 0;
+  readonly statusLabel = statusLabel;
+  readonly captionPreviewLength = 160;
+  private expandedPosts = new Set<string>();
 
   private downloadSubscription: any;
 
   constructor(
     private postsService: PostsService,
     private route: ActivatedRoute,
-    private downloadService: DownloadService
+    private downloadService: DownloadService,
+    private toastr: ToastrService
   ) {}
 
   ngOnInit(): void {
+    try {
+      const saved = localStorage.getItem(VIEW_KEY);
+      if (saved === 'grid' || saved === 'timeline') {
+        this.viewMode = saved;
+      }
+    } catch { /* storage unavailable — default view */ }
+
     this.route.queryParamMap.subscribe((params) => {
-      const name = params.get('tripName');  
+      const name = params.get('tripName');
       if (name) {
-        this.tripName = name.toLowerCase()
-          .replace(/[^\w\s-]/g, '')
-          .replace(/\s+/g, '-');
+        this.setTripName(name);
       } else {
-        this.tripName = 'unknown-trip'; 
+        this.tripName = 'unknown-trip';
       }
     });
-    
+
     this.route.paramMap.subscribe((paramMap) => {
       this.tripId = paramMap.get('tripId');
+      this.fetchTrip();
       this.fetchPosts();
     });
 
@@ -71,50 +111,151 @@ export class PostListComponent implements OnInit, OnDestroy {
     }
   }
 
+  // The trip name and dates for the page heading (the query param may be missing,
+  // e.g. when arriving here after saving a place)
+  fetchTrip() {
+    if (!this.tripId) {
+      return;
+    }
+    this.postsService.getTripById(this.tripId).subscribe((trip) => {
+      if (trip?.destination) {
+        this.setTripName(trip.destination);
+      }
+      this.tripDates = formatDateRange(trip?.startDate, trip?.endDate);
+      this.tripStart = trip?.startDate ? new Date(trip.startDate) : null;
+      this.tripEnd = trip?.endDate ? new Date(trip.endDate) : null;
+      this.timing = trip?.startDate ? tripTiming(trip.startDate, trip.endDate) : null;
+      this.tripCover = typeof trip?.coverPhoto === 'string' && trip.coverPhoto ? trip.coverPhoto : null;
+      this.buildTimeline();
+    }, () => { /* heading falls back to the query param */ });
+  }
+
+  private setTripName(name: string) {
+    this.tripTitle = name;
+    this.tripName = name.toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-');
+  }
+
   fetchPosts() {
     this.isLoading = true;
     if (!this.tripId) {
       this.postListArray = [];
       this.paginatedPosts = [];
       this.totalPosts = 0;
+      this.isLoading = false;
       return;
     }
 
     this.postsService.getPostsByTripId(this.tripId).subscribe((data) => {
       this.postListArray = data.posts || [];
       this.totalPosts = this.postListArray.length;
-      console.log('postlist array', this.postListArray);
       this.updatePaginatedPosts();
       this.disablePageSizeOptions();
+      this.isLoading = false;
+    }, () => {
+      this.isLoading = false;
+      this.toastr.error('We couldn\'t load the places for this trip. Please refresh to try again.', 'Something went wrong');
     });
-    this.isLoading = false;
   }
 
-  deletePost(postId: string) {
-    Swal.fire({
-      title: 'Are you sure?',
-      text: 'This post will be permanently deleted!',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, delete it!',
-      cancelButtonText: 'Cancel',
-      confirmButtonColor: '#0a1c38',
-      cancelButtonColor: '#f28b82'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.postsService.deletePost(postId).subscribe(() => {
-          this.postListArray = this.postListArray.filter(
-            (post) => post.id !== postId
-          );
-          this.totalPosts = this.postListArray.length;
+  async deletePost(postId: string) {
+    const confirmed = await confirmDelete('Delete this place?', 'This place and its notes will be permanently removed. This can\'t be undone.');
+    if (!confirmed) {
+      return;
+    }
+    this.postsService.deletePost(postId).subscribe(() => {
+      this.postListArray = this.postListArray.filter(
+        (post) => post.id !== postId
+      );
+      this.totalPosts = this.postListArray.length;
 
-          this.updatePaginatedPosts();
-          this.disablePageSizeOptions();
+      this.updatePaginatedPosts();
+      this.disablePageSizeOptions();
 
-          Swal.fire('Deleted!', 'The post has been deleted.', 'success');
-        });
+      this.toastr.success('The place has been deleted.', 'Deleted');
+    }, () => this.toastr.error('The place couldn\'t be deleted. Please try again.', 'Delete failed'));
+  }
+
+  readonly valueMeta = placeValueMeta;
+
+  setView(mode: 'timeline' | 'grid') {
+    this.viewMode = mode;
+    try {
+      localStorage.setItem(VIEW_KEY, mode);
+    } catch { /* storage unavailable */ }
+  }
+
+  maxDayCount = 1;
+
+  // Groups all places by visit date, in date order; undated places go last.
+  // (The timeline shows the whole trip; only the grid view is paginated.)
+  private buildTimeline() {
+    const start = dayStart(this.tripStart);
+    const end = dayStart(this.tripEnd) || start;
+    const groups = new Map<string, { time: number, posts: Post[] }>();
+    for (const post of this.postListArray) {
+      const time = dayStart(post.date);
+      const key = time ? String(time) : 'undated';
+      if (!groups.has(key)) {
+        groups.set(key, { time, posts: [] });
       }
+      groups.get(key)!.posts.push(post);
+    }
+    this.timelineDays = [...groups.entries()]
+      .sort(([, a], [, b]) => (a.time || Infinity) - (b.time || Infinity))
+      .map(([key, { time, posts }]) => {
+        const inTrip = !!time && !!start && time >= start && time <= end;
+        return {
+          key,
+          count: posts.length,
+          dayLabel: !time ? 'No date' : inTrip ? `Day ${Math.round((time - start) / DAY_MS) + 1}` : '',
+          dateLabel: time
+            ? new Date(time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', ...(inTrip ? {} : { year: 'numeric' }) })
+            : 'Date of visit not set',
+          posts,
+        };
+      });
+    this.maxDayCount = Math.max(1, ...this.timelineDays.map(d => d.count));
+  }
+
+  // Jumps the timeline to a day (switching to the timeline view if needed)
+  scrollToDay(key: string) {
+    if (this.viewMode !== 'timeline') {
+      this.setView('timeline');
+    }
+    setTimeout(() => document.getElementById('day-' + key)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+
+  // Rating breakdown and photo count for the sidebar
+  private updateInsights() {
+    const counts = new Map<string, number>();
+    this.postListArray.forEach(post => post.value && counts.set(post.value, (counts.get(post.value) || 0) + 1));
+    this.ratedCount = [...counts.values()].reduce((a, b) => a + b, 0);
+    this.ratingStats = PLACE_VALUES.map(v => {
+      const count = counts.get(v.name) || 0;
+      return { ...v, count, pct: this.ratedCount ? Math.round((count / this.ratedCount) * 100) : 0 };
     });
+    this.photoCount = this.postListArray.filter(post => !!post.image).length;
+  }
+
+  formatDate(date: Date | string | null): string {
+    const parsed = date ? new Date(date) : null;
+    return parsed && !isNaN(parsed.getTime())
+      ? parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : '';
+  }
+
+  isExpanded(postId: string): boolean {
+    return this.expandedPosts.has(postId);
+  }
+
+  toggleExpanded(postId: string) {
+    if (this.expandedPosts.has(postId)) {
+      this.expandedPosts.delete(postId);
+    } else {
+      this.expandedPosts.add(postId);
+    }
   }
 
   onChangePage(event: PageEvent) {
@@ -128,9 +269,14 @@ export class PostListComponent implements OnInit, OnDestroy {
   }
 
   updatePaginatedPosts() {
+    // Step back a page if deleting emptied the current one
+    const lastPage = Math.max(0, Math.ceil(this.postListArray.length / (this.pageSize || 1)) - 1);
+    this.currentPage = Math.min(this.currentPage, lastPage);
     const startIndex = this.currentPage * this.pageSize;
     const endIndex = startIndex + this.pageSize;
     this.paginatedPosts = this.postListArray.slice(startIndex, endIndex);
+    this.buildTimeline();
+    this.updateInsights();
   }
 
   disablePageSizeOptions() {
@@ -180,9 +326,9 @@ export class PostListComponent implements OnInit, OnDestroy {
     let y = margin;
 
     // Destination heading at the top of the document 
-    const heading = (this.tripName && this.tripName !== "unknown-trip")
+    const heading = this.tripTitle || ((this.tripName && this.tripName !== "unknown-trip")
       ? this.tripName.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-      : "My Trip";
+      : "My Trip");
     pdf.setFontSize(22);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(10, 28, 56); 

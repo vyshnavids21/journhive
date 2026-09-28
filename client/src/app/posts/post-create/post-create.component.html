@@ -1,70 +1,85 @@
-<div class="create-entry-container">
-  <div class="create-card">
-    <h2 class="create-title">{{ mode === 'create' ? "Add a new place" : "Edit the place" }}</h2>
-    <div class="modal-close" (click)="cancelClick()">
-      <button mat-icon-button>
-        <mat-icon>close</mat-icon>
-      </button>
+<form class="editor" (ngSubmit)="savePost()" novalidate>
+  <header class="panel-head">
+    <button type="button" class="back-link" (click)="cancelClick()">
+      <mat-icon>chevron_left</mat-icon>
+      {{ selectedTripId ? 'Back to trip' : 'Back to my trips' }}
+    </button>
+    <h1 class="form-title">{{ mode === 'create' ? 'Add a place' : 'Edit place' }}</h1>
+    <p class="form-subtitle">
+      {{ mode === 'create' ? 'Capture where you went, what it was like and whether it was worth it.' : 'Update the details of this place.' }}
+    </p>
+  </header>
+
+  <section class="editor-media">
+    <div class="media-toolbar">
+      <span class="field-label">Photo <span class="optional">(optional)</span></span>
+      <mat-checkbox name="skipImage" [(ngModel)]="post.skipImage" (change)="onCheckedSkipImage($event)">
+        Continue without a photo
+      </mat-checkbox>
     </div>
-    <div class="create-grid">
-      <div class="create-image-section">
-        <div class="create-upload-box" [class.image-added]="imagePreview">
-          <ng-container *ngIf="!imagePreview">
-            <button mat-stroked-button color="primary" (click)="uploadImg.click()">
-              📸 Upload Image
-            </button>
-            <p class="hint-text">Choose an image</p>
-          </ng-container>
-          <img *ngIf="imagePreview" [src]="imagePreview" alt="Preview" />
-        </div>
-        <button *ngIf="imagePreview" mat-stroked-button color="primary" class="change-image-btn" (click)="uploadImg.click()">
-          📸 Change Image
-        </button>
-        <mat-checkbox [(ngModel)]="post.skipImage" (change)="onCheckedSkipImage($event)">Skip image</mat-checkbox>
-        <input type="file" #uploadImg accept="image/*" (change)="onFileSelected($event)" hidden>
-      </div>
 
-      <div class="create-form-section">
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Place</mat-label>
-          <input matInput [(ngModel)]="post.title" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="full-width caption-field">
-          <mat-label>Travel Notes</mat-label>
-          <textarea matInput rows="3" [(ngModel)]="post.caption"></textarea>
-        </mat-form-field>
-
-        <div class="value-section">
-          <label class="value-label">Perceived Value</label>
-          <div class="value-list">
-            <button
-              *ngFor="let value of values"
-              mat-stroked-button
-              [class.selected]="post.value === value.name"
-              (click)="post.value = value.name">
-              <span class="value-emoji">{{ value.emoji }}</span>
-              <p>{{ value.name }}</p>
-            </button>
-          </div>
-        </div>
-
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Date Of Visit</mat-label>
-          <input
-            matInput
-            [matDatepicker]="picker"
-            [(ngModel)]="post.date"
-            placeholder="Choose a date"
-          />
-          <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-          <mat-datepicker #picker></mat-datepicker>
-        </mat-form-field>
-
-        <button mat-raised-button color="primary" class="submit-btn" (click)="savePost()" [disabled]="!post.title || !post.caption || !post.value">
-          {{ mode === 'create' ? "➕ Add Entry" : "Update Entry" }}
-        </button>
+    <div class="dropzone" role="button" tabindex="0" aria-label="Upload a photo"
+      [class.has-image]="imagePreview" [class.dragging]="isDragging" [class.muted]="post.skipImage && !imagePreview"
+      (click)="uploadImg.click()" (keydown.enter)="uploadImg.click()" (keydown.space)="$event.preventDefault(); uploadImg.click()"
+      (dragover)="onDragOver($event)" (dragleave)="isDragging = false" (drop)="onDrop($event)">
+      <ng-container *ngIf="imagePreview">
+        <img class="dz-blur" [src]="imagePreview" alt="" aria-hidden="true" />
+        <img class="dz-image" [src]="imagePreview" alt="Photo preview" />
+        <span class="dropzone-overlay"><mat-icon>sync</mat-icon> Change photo</span>
+        <span *ngIf="imageSize" class="resolution-chip">
+          <mat-icon>image</mat-icon>
+          {{ imageSize.width }} × {{ imageSize.height }} px
+        </span>
+      </ng-container>
+      <div *ngIf="!imagePreview" class="dropzone-empty">
+        <span class="dz-icon"><mat-icon>add_photo_alternate</mat-icon></span>
+        <strong>Click to upload or drag and drop</strong>
+        <span>JPG, PNG or WEBP</span>
       </div>
     </div>
+    <input type="file" #uploadImg accept="image/png,image/jpeg,image/webp" (change)="onFileSelected($event)" hidden>
+  </section>
+
+  <div class="panel-body">
+    <div class="field-row">
+      <mat-form-field appearance="outline">
+        <mat-icon matPrefix>place</mat-icon>
+        <mat-label>Place</mat-label>
+        <input matInput name="title" [(ngModel)]="post.title" placeholder="e.g. Belém Tower" required />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Date of visit</mat-label>
+        <input matInput name="date" [matDatepicker]="picker" [(ngModel)]="post.date" placeholder="Choose a date" />
+        <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+        <mat-datepicker #picker></mat-datepicker>
+      </mat-form-field>
+    </div>
+
+    <div>
+      <span class="field-label" id="value-label">Was it worth it?</span>
+      <div class="value-list" role="radiogroup" aria-labelledby="value-label">
+        <button *ngFor="let value of values" type="button" role="radio" class="value-option"
+          [ngClass]="value.tone" [class.selected]="post.value === value.name"
+          [attr.aria-checked]="post.value === value.name" (click)="selectMood(value.name)">
+          <mat-icon>{{ value.icon }}</mat-icon>
+          <span>{{ value.name }}</span>
+        </button>
+      </div>
+    </div>
+
+    <mat-form-field appearance="outline" class="notes-field">
+      <mat-label>Travel notes</mat-label>
+      <textarea matInput name="caption" rows="6" [(ngModel)]="post.caption"
+        placeholder="What did you see, eat or discover? Any tips for next time?" required></textarea>
+    </mat-form-field>
   </div>
-</div>
+
+  <footer class="form-actions">
+    <button type="button" class="btn btn-ghost" (click)="cancelClick()">Cancel</button>
+    <button type="submit" class="btn btn-primary" [disabled]="!post.title || !post.caption || !post.value || saving">
+      <span *ngIf="saving" class="spinner" aria-hidden="true"></span>
+      {{ mode === 'create' ? 'Add place' : 'Save changes' }}
+    </button>
+  </footer>
+</form>

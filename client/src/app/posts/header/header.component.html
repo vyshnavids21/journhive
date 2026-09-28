@@ -1,61 +1,42 @@
-<mat-toolbar class="header-bar">
-
-   <div class="arrow-placeholder">
-      <button *ngIf="showArrowBack()" class="arrow-btn" mat-icon-button (click)="navigateToLists()">
-        <mat-icon>chevron_left</mat-icon>
-      </button>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-left">
+      <a routerLink="/trips" class="brand" aria-label="JournHive home">
+        <span class="brand-mark"><mat-icon>travel_explore</mat-icon></span>
+        <span class="brand-name"><span class="brand-journ">Journ</span>Hive</span>
+      </a>
     </div>
 
-  <div class="left-section">
-    <a routerLink="/trips" class="brand">
-      <span class="app-title"><span class="brand-name"><span class="brand-journ">Journ</span><span class="brand-hive">Hive</span></span></span>
-    </a>
-  </div>
+    <div class="topbar-right">
+      <div class="account">
+        <button type="button" class="avatar-btn" (click)="toggleUserMenu($event)"
+          [attr.aria-expanded]="showUserMenu" aria-haspopup="menu" aria-label="Account menu">
+          <span class="avatar">{{ userInitial }}</span>
+          <mat-icon class="chevron" [class.open]="showUserMenu">expand_more</mat-icon>
+        </button>
 
-  <div class="right-section">
-    <button *ngIf="showDownloadButton()" mat-button class="download-post" (click)="onDownloadPosts()">
-      <mat-icon>download</mat-icon>
-      Download
-    </button>
+        <div class="user-menu" *ngIf="showUserMenu" role="menu" (click)="$event.stopPropagation()">
+          <div class="user-info">
+            <span class="avatar avatar-lg">{{ userInitial }}</span>
+            <div class="user-details">
+              <span class="user-label">Signed in as</span>
+              <span class="user-name" [title]="userEmailId">{{ userEmailId }}</span>
+            </div>
+          </div>
 
-    <button mat-button class="new-post" (click)="navigateToCreate()">
-      {{ buttonLabel }}
-    </button>
+          <button type="button" role="menuitem" class="menu-item" routerLink="/trips" (click)="closeMenu()">
+            <mat-icon>luggage</mat-icon>
+            My trips
+          </button>
 
-    <button class="profile-btn" mat-icon-button (click)="toggleUserMenu()">
-      <mat-icon>account_circle</mat-icon>
-    </button>
-  </div>
+          <div class="menu-divider"></div>
 
-  <div class="user-menu" *ngIf="showUserMenu">
-    <div class="user-info">
-      <div class="user-avatar">
-        <mat-icon>person</mat-icon>
-      </div>
-      <div class="user-details">
-        <span class="user-label">Signed in as</span>
-        <span class="user-name">{{ userEmailId }}</span>
+          <button type="button" role="menuitem" class="menu-item danger" (click)="logout()">
+            <mat-icon>logout</mat-icon>
+            Log out
+          </button>
+        </div>
       </div>
     </div>
-
-    <div class="menu-divider"></div>
-
-    <button class="menu-action mobile-action" mat-button (click)="navigateToCreate(); toggleUserMenu()">
-      <mat-icon>add</mat-icon>
-      {{ buttonLabel }}
-    </button>
-
-    <button *ngIf="showDownloadButton()" class="menu-action mobile-action" mat-button (click)="onDownloadPosts(); toggleUserMenu()">
-      <mat-icon>download</mat-icon>
-      Download
-    </button>
-
-    <div class="menu-divider mobile-action"></div>
-
-    <button class="logout-button" mat-button color="warn" (click)="logout()">
-      <mat-icon>logout</mat-icon>
-      Logout
-    </button>
   </div>
-
-</mat-toolbar>
+</header>

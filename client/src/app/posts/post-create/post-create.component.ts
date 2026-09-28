@@ -1,15 +1,16 @@
-import { Component, OnInit, EventEmitter, Output, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Post } from '../../models/post.model';
 import { PostsService } from '../../services/posts.service';
 import { ActivatedRoute } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { Router } from '@angular/router';
+import { PLACE_VALUES } from 'src/app/shared/place-values';
+import { readImageSize } from 'src/app/shared/image-url';
 
 @Component({
   selector: 'app-post-create',
   templateUrl: './post-create.component.html',
-  styleUrls: ['./post-create.component.scss'],
-  encapsulation: ViewEncapsulation.None
+  styleUrls: ['./post-create.component.scss']
 })
 export class PostCreateComponent implements OnInit {
   enteredTitle = '';
@@ -23,16 +24,12 @@ export class PostCreateComponent implements OnInit {
   trips: any[] = [];
   selectedTripId = '';
 
-  values = [
-    { name: 'Totally Worth It', emoji: '✅' },
-    { name: 'Worth Once', emoji: '⭐' },
-    { name: 'Missed Out', emoji: '⚪' },
-    { name: 'Not Worth It', emoji: '❌' },
-  ];
+  values = PLACE_VALUES;
+  isDragging = false;
+  saving = false;
 
-
-  // @Output() postCreated = new EventEmitter<Post>();
-  // @Output() postUpdated = new EventEmitter<Post>();
+  // Real pixel size of the chosen photo, shown on the preview
+  imageSize: { width: number, height: number } | null = null;
 
 
   constructor(private postsService: PostsService, private route: ActivatedRoute, private toastr: ToastrService,
@@ -67,6 +64,7 @@ export class PostCreateComponent implements OnInit {
           }
           if (postData.image && typeof postData.image === 'string') {
             this.imagePreview = postData.image;
+            this.measureImage(this.imagePreview);
           }
         });
       }
@@ -74,13 +72,36 @@ export class PostCreateComponent implements OnInit {
   }
 
   onFileSelected(event: Event) {
-    const file = (event.target as HTMLInputElement).files?.[0];
-    if (!file) return;
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) {
+      this.setImageFile(file);
+    }
+    input.value = ''; // allow re-selecting the same file
+  }
 
+  onDragOver(event: DragEvent) {
+    event.preventDefault();
+    this.isDragging = true;
+  }
+
+  onDrop(event: DragEvent) {
+    event.preventDefault();
+    this.isDragging = false;
+    const file = event.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      this.setImageFile(file);
+    }
+  }
+
+  private setImageFile(file: File) {
     this.selectedImage = file;
-
+    this.post.skipImage = false;
     const reader = new FileReader();
-    reader.onload = () => (this.imagePreview = reader.result);
+    reader.onload = () => {
+      this.imagePreview = reader.result;
+      this.measureImage(this.imagePreview);
+    };
     reader.readAsDataURL(file);
   }
 
@@ -93,9 +114,10 @@ export class PostCreateComponent implements OnInit {
   }
 
   savePost() {
-    if (!this.post.title || !this.post.caption || !this.post.value) {
+    if (!this.post.title || !this.post.caption || !this.post.value || this.saving) {
       return;
     }
+    this.saving = true;
 
     const postData = new FormData();
     postData.append('title', this.post.title);
@@ -114,7 +136,8 @@ export class PostCreateComponent implements OnInit {
     if (this.mode === 'create') {
       this.postsService.addPost(postData).subscribe(
         (res) => {
-          this.toastr.success('Post created successfully', 'Success');
+          this.saving = false;
+          this.toastr.success(`${this.post.title} has been added to your trip.`, 'Place added');
           this.post.title = '';
           this.post.caption = '';
           this.post.value = '';
@@ -129,12 +152,16 @@ export class PostCreateComponent implements OnInit {
             this.router.navigate(['/trips']);
           }
         },
-        (err) => this.toastr.error('Post creation failed', 'Error')
+        (err) => {
+          this.saving = false;
+          this.toastr.error('The place couldn\'t be added. Please try again.', 'Something went wrong');
+        }
       );
     } else if (this.mode === 'edit' && this.postId) {
       this.postsService.updatePost(this.postId, postData).subscribe(
         (res) => {
-          this.toastr.success('Post updated successfully', 'Success');
+          this.saving = false;
+          this.toastr.success('Your changes have been saved.', 'Place updated');
           // Navigate back to trip's post list if tripId exists, otherwise to trips dashboard
           if (this.selectedTripId) {
             this.router.navigate(['/trips', this.selectedTripId]);
@@ -143,8 +170,9 @@ export class PostCreateComponent implements OnInit {
           }
         },
         (err) => {
-          const msg = err?.error?.message || 'Post update failed';
-          this.toastr.error(msg, 'Error');
+          this.saving = false;
+          const msg = err?.error?.message || 'Your changes couldn\'t be saved. Please try again.';
+          this.toastr.error(msg, 'Something went wrong');
         }
       );
     }
@@ -155,7 +183,18 @@ export class PostCreateComponent implements OnInit {
     if (this.post.skipImage) {
       this.imagePreview = null;
       this.selectedImage = null;
+      this.imageSize = null;
     }
+  }
+
+  private measureImage(src: string | ArrayBuffer | null) {
+    this.imageSize = null;
+    if (typeof src !== 'string' || !src) {
+      return;
+    }
+    readImageSize(src)
+      .then(size => { if (this.imagePreview === src) { this.imageSize = size; } })
+      .catch(() => { this.imageSize = null; });
   }
 
   cancelClick() {

@@ -1,63 +1,242 @@
-<div class="create-entry-container">
-  <div class="create-card">
-    <h2 class="create-title">{{ mode === 'create' ? "Add a new place" : "Edit the place" }}</h2>
-    <div class="modal-close" (click)="cancelClick()">
-      <button mat-icon-button>
-        <mat-icon>close</mat-icon>
+<form class="planner" (ngSubmit)="addTrip()" novalidate>
+  <!-- Compact page header -->
+  <header class="planner-head">
+    <div class="head-main">
+      <button type="button" class="back-link" (click)="cancelClick()">
+        <mat-icon>arrow_back</mat-icon>
+        {{ mode === 'create' ? 'Back to my trips' : 'Back to trip' }}
       </button>
+      <div class="title-row">
+        <h1 class="planner-title">{{ mode === 'create' ? 'Plan a new trip' : 'Edit trip' }}</h1>
+        <span class="eyebrow">
+          <mat-icon>{{ mode === 'create' ? 'flight_takeoff' : 'edit_calendar' }}</mat-icon>
+          {{ mode === 'create' ? 'New trip' : 'Editing' }}
+        </span>
+      </div>
     </div>
-    <div class="create-grid">
-      <div class="create-image-section">
-        <div class="create-upload-box" [class.image-added]="imagePreview">
-          <ng-container *ngIf="!imagePreview">
-            <button mat-stroked-button color="primary" (click)="uploadImg.click()">
-              📸 Upload Image
-            </button>
-            <p class="hint-text">Choose an image</p>
-          </ng-container>
-          <img *ngIf="imagePreview" [src]="imagePreview" alt="Preview" />
+    <p class="planner-subtitle">
+      {{ mode === 'create'
+        ? 'Set the destination and dates — the preview updates as you go, and you can add places right after.'
+        : 'Update the destination, dates or cover photo. The preview shows how your trip will look.' }}
+    </p>
+  </header>
+
+  <div class="planner-grid">
+    <!-- ================= Workspace: details + cover photo ================= -->
+    <div class="workspace">
+      <!-- Trip details -->
+      <section class="panel details-panel">
+        <div class="panel-head">
+          <span class="panel-icon"><mat-icon>travel_explore</mat-icon></span>
+          <div>
+            <h2>Trip details</h2>
+            <p>Where you're going and when.</p>
+          </div>
         </div>
-        <button *ngIf="imagePreview" mat-stroked-button color="primary" class="change-image-btn" (click)="uploadImg.click()">
-          📸 Change Image
-        </button>
-        <mat-checkbox [(ngModel)]="trip.skipImage" (change)="onCheckedSkipImage($event)">Skip image</mat-checkbox>
-        <input type="file" #uploadImg accept="image/*" (change)="onFileSelected($event)" hidden>
-      </div>
 
-      <div class="create-form-section">
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Travel Spot</mat-label>
-          <input matInput [(ngModel)]="trip.destination" />
-        </mat-form-field>
+        <div class="field-block">
+          <label class="block-label" for="destination">Destination</label>
+          <mat-form-field appearance="outline" class="field-xl">
+            <mat-icon matPrefix>place</mat-icon>
+            <mat-label>City, region or country</mat-label>
+            <input id="destination" matInput name="destination" [(ngModel)]="trip.destination"
+              placeholder="e.g. Lisbon, Portugal" autocomplete="off" required />
+          </mat-form-field>
+        </div>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Start Date</mat-label>
-          <input
-            matInput
-            [matDatepicker]="startPicker"
-            [(ngModel)]="trip.startDate"
-            placeholder="Choose a date"
-          />
-          <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
-          <mat-datepicker #startPicker></mat-datepicker>
-        </mat-form-field>
+        <div class="field-block">
+          <span class="block-label">Travel dates</span>
+          <div class="date-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Departure</mat-label>
+              <input matInput name="startDate" [matDatepicker]="startPicker" [(ngModel)]="trip.startDate"
+                (dateChange)="onStartChange()" [max]="trip.endDate" placeholder="Choose a date" required />
+              <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+              <mat-datepicker #startPicker></mat-datepicker>
+            </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>End Date</mat-label>
-          <input
-            matInput
-            [matDatepicker]="endPicker"
-            [(ngModel)]="trip.endDate"
-            placeholder="Choose a date"
-          />
-          <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
-          <mat-datepicker #endPicker></mat-datepicker>
-        </mat-form-field>
+            <span class="date-arrow" aria-hidden="true"><mat-icon>arrow_forward</mat-icon></span>
 
-        <button mat-raised-button color="primary" class="submit-btn" (click)="addTrip()" [disabled]="!trip.destination || !trip.startDate || !trip.endDate">
-          {{ mode === 'create' ? "➕ Add Entry" : "Update Entry" }}
-        </button>
-      </div>
+            <mat-form-field appearance="outline">
+              <mat-label>Return</mat-label>
+              <input matInput name="endDate" [matDatepicker]="endPicker" [(ngModel)]="trip.endDate"
+                (dateChange)="onEndChange()" [min]="trip.startDate" placeholder="Choose a date" required />
+              <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+              <mat-datepicker #endPicker [startAt]="trip.startDate"></mat-datepicker>
+            </mat-form-field>
+          </div>
+
+          <!-- Quick trip lengths: set the return date from the departure -->
+          <div class="quick-lengths" role="group" aria-label="Quick trip length">
+            <button *ngFor="let q of quickLengths" type="button" class="quick-chip"
+              [class.active]="tripLength === q.days" [disabled]="!trip.startDate"
+              [title]="trip.startDate ? '' : 'Pick a departure date first'" (click)="setLength(q.days)">
+              <mat-icon>{{ q.icon }}</mat-icon>{{ q.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Month view of the trip; click two days to pick the range -->
+        <div class="calendar" aria-label="Trip calendar">
+          <div class="cal-head">
+            <button type="button" class="cal-nav" (click)="shiftMonth(-1)" aria-label="Previous month"><mat-icon>chevron_left</mat-icon></button>
+            <span class="cal-title">{{ monthLabel }}</span>
+            <button type="button" class="cal-nav" (click)="shiftMonth(1)" aria-label="Next month"><mat-icon>chevron_right</mat-icon></button>
+          </div>
+          <div class="cal-grid" (mouseleave)="hoverTime = 0">
+            <span class="cal-weekday" *ngFor="let w of weekdays">{{ w }}</span>
+            <button *ngFor="let c of calendarCells" type="button" class="cal-day"
+              [class.out]="!c.inMonth" [class.today]="c.today" [class.start]="c.start" [class.end]="c.end"
+              [class.range]="c.range" [class.preview]="c.preview"
+              [attr.aria-label]="c.label" [attr.aria-pressed]="c.start || c.end"
+              (click)="pickDay(c.time)" (mouseenter)="hoverTime = c.time">
+              {{ c.day }}
+            </button>
+          </div>
+          <p class="cal-hint">
+            <mat-icon>touch_app</mat-icon>
+            {{ !trip.startDate || trip.endDate ? 'Click a day to set your departure' : 'Now click your return day' }}
+          </p>
+        </div>
+      </section>
+
+      <!-- Cover photo: a 3:2 frame that is both the preview and the drop zone -->
+      <section class="panel photo-panel">
+        <div class="panel-head">
+          <span class="panel-icon"><mat-icon>photo_camera</mat-icon></span>
+          <div>
+            <h2>Cover photo <span class="optional">Optional</span></h2>
+            <p>Shown on the trip card and trip page.</p>
+          </div>
+        </div>
+
+        <div class="photo-frame" [class.has-image]="imagePreview" [class.dragging]="isDragging"
+          (dragover)="onDragOver($event)" (dragleave)="isDragging = false" (drop)="onDrop($event)">
+          <ng-container *ngIf="imagePreview; else emptyFrame">
+            <app-smart-image [src]="imagePreview" alt="Cover photo preview" [lazy]="false"
+              [keepShape]="true" [backdrop]="false"></app-smart-image>
+
+            <span *ngIf="imageSize" class="size-chip">
+              <mat-icon>image</mat-icon>
+              {{ imageSize.width }} × {{ imageSize.height }} px
+            </span>
+
+            <span class="frame-actions">
+              <button type="button" class="frame-btn" (click)="uploadImg.click()">
+                <mat-icon>sync</mat-icon> Replace
+              </button>
+              <button type="button" class="frame-btn danger" (click)="removePhoto()" aria-label="Remove photo" title="Remove photo">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </span>
+          </ng-container>
+
+          <ng-template #emptyFrame>
+            <button type="button" class="frame-empty" (click)="uploadImg.click()">
+              <span class="frame-rings" aria-hidden="true"></span>
+              <span class="frame-icon"><mat-icon>{{ isDragging ? 'file_download' : 'add_photo_alternate' }}</mat-icon></span>
+              <strong>{{ isDragging ? 'Drop to upload' : 'Drag a photo here' }}</strong>
+              <span>or <u>browse your files</u></span>
+              <small>JPG, PNG or WEBP</small>
+            </button>
+          </ng-template>
+        </div>
+
+
+        <!-- Short, practical guidance (shown when there's vertical room) -->
+        <ul class="photo-tips">
+          <li><mat-icon>crop_landscape</mat-icon><div><strong>Landscape works best</strong><span>3:2 photos fill the card perfectly</span></div></li>
+          <li><mat-icon>high_quality</mat-icon><div><strong>Go big</strong><span>{{ recommendedWidth }} px+ stays sharp on the banner</span></div></li>
+          <li><mat-icon>auto_awesome</mat-icon><div><strong>Pick a hero shot</strong><span>A signature view makes it easy to spot</span></div></li>
+        </ul>
+
+        <input type="file" #uploadImg accept="image/png,image/jpeg,image/webp" (change)="onFileSelected($event)" hidden>
+      </section>
     </div>
+
+    <!-- ================= Live trip preview ================= -->
+    <aside class="summary" aria-label="Trip preview">
+      <div class="summary-card">
+        <div class="summary-top">
+          <span class="summary-label"><span class="live-dot"></span>Live preview</span>
+          <span class="summary-sub">How it'll look in My trips</span>
+        </div>
+
+        <!-- Mirrors the trip card on My trips -->
+        <div class="preview-card">
+          <div class="preview-media">
+            <app-smart-image *ngIf="imagePreview; else noCover" [src]="imagePreview" alt=""
+              [lazy]="false" [keepShape]="true" [backdrop]="false"></app-smart-image>
+            <ng-template #noCover><span class="cover-placeholder"><mat-icon>landscape</mat-icon></span></ng-template>
+            <span class="status-pill" *ngIf="timing.startTime">
+              <span class="dot" [ngClass]="timing.status"></span>{{ statusLabel(timing.status) }}
+            </span>
+          </div>
+          <div class="preview-body">
+            <strong [class.placeholder]="!trip.destination">{{ trip.destination || 'Where to?' }}</strong>
+            <span [class.placeholder]="!previewDates">
+              {{ previewDates || 'Pick your dates' }}<ng-container *ngIf="timing.when && trip.endDate"> · {{ timing.when }}</ng-container>
+            </span>
+          </div>
+        </div>
+
+        <!-- Mini trip-page banner: the other place the cover appears (shown when there's room) -->
+        <div class="banner-preview" aria-hidden="true">
+          <span class="banner-label">On the trip page</span>
+          <div class="banner">
+            <app-smart-image *ngIf="imagePreview; else bannerNoCover" [src]="imagePreview" alt=""
+              [lazy]="false" [alignEnd]="true" [backdrop]="false"></app-smart-image>
+            <ng-template #bannerNoCover><span class="cover-placeholder"></span></ng-template>
+            <span class="banner-text">
+              <strong>{{ trip.destination || 'Your destination' }}</strong>
+              <small>{{ previewDates || 'Trip dates' }}{{ tripLength ? ' · ' + tripLength + (tripLength === 1 ? ' day' : ' days') : '' }}</small>
+            </span>
+          </div>
+        </div>
+
+        <!-- Boarding-pass style journey -->
+        <div class="ticket">
+          <div class="leg">
+            <span class="leg-label">Depart</span>
+            <strong [class.placeholder]="!trip.startDate">{{ trip.startDate ? (trip.startDate | date:'MMM d') : '— —' }}</strong>
+            <span>{{ trip.startDate ? (trip.startDate | date:'EEE, y') : 'Not set' }}</span>
+          </div>
+          <div class="flight">
+            <span class="flight-line"></span>
+            <span class="flight-plane"><mat-icon>flight</mat-icon></span>
+            <span class="flight-days">{{ tripLength ? tripLength + (tripLength === 1 ? ' day' : ' days') : '— days' }}</span>
+          </div>
+          <div class="leg right">
+            <span class="leg-label">Return</span>
+            <strong [class.placeholder]="!trip.endDate">{{ trip.endDate ? (trip.endDate | date:'MMM d') : '— —' }}</strong>
+            <span>{{ trip.endDate ? (trip.endDate | date:'EEE, y') : 'Not set' }}</span>
+          </div>
+        </div>
+
+        <!-- Readiness -->
+        <div class="readiness">
+          <div class="ready-row">
+            <span>{{ readyCount === 2 ? 'Ready to plan' : 'Almost there' }}</span>
+            <span class="ready-count">{{ readyCount }}/2 required</span>
+          </div>
+          <div class="ready-bar"><span [style.width.%]="readyCount * 50"></span></div>
+          <div class="ready-items">
+            <span [class.done]="trip.destination"><mat-icon>{{ trip.destination ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>Destination</span>
+            <span [class.done]="trip.startDate && trip.endDate"><mat-icon>{{ trip.startDate && trip.endDate ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>Dates</span>
+            <span [class.done]="imagePreview" class="opt"><mat-icon>{{ imagePreview ? 'check_circle' : 'add_circle_outline' }}</mat-icon>Photo</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary-actions">
+        <button type="submit" class="btn btn-primary btn-lg btn-block plan-btn" [class.ready]="readyCount === 2"
+          [disabled]="!trip.destination || !trip.startDate || !trip.endDate || saving">
+          <span *ngIf="saving" class="spinner" aria-hidden="true"></span>
+          <mat-icon *ngIf="!saving">{{ mode === 'create' ? 'flight_takeoff' : 'check' }}</mat-icon>
+          {{ mode === 'create' ? 'Plan trip' : 'Save changes' }}
+        </button>
+        <button type="button" class="btn btn-ghost btn-block" (click)="cancelClick()">Cancel</button>
+      </div>
+    </aside>
   </div>
-</div>
+</form>

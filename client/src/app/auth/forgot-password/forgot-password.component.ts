@@ -1,4 +1,4 @@
-import { Component, ViewEncapsulation } from '@angular/core';
+import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { PostsService } from '../../services/posts.service';
 import { ToastrService } from 'ngx-toastr';
@@ -6,8 +6,7 @@ import { ToastrService } from 'ngx-toastr';
 @Component({
   selector: 'app-forgot-password',
   templateUrl: './forgot-password.component.html',
-  styleUrls: ['./forgot-password.component.scss'],
-  encapsulation: ViewEncapsulation.None
+  styleUrls: ['./forgot-password.component.scss']
 })
 export class ForgotPasswordComponent {
   email: string = '';
@@ -44,7 +43,7 @@ export class ForgotPasswordComponent {
         if (res?.previewUrl) {
           console.log('Password reset email preview:', res.previewUrl);
         }
-        this.toastrService.success(`Password reset link sent to ${this.email}`, 'Success');
+        this.toastrService.success(`We've sent a reset link to ${this.email}.`, 'Check your inbox');
         this.navigateToLogin();
       },
       error: (err) => {

@@ -1,74 +1,72 @@
-<div class="signup-page-wrapper">
-    <span class="bg-blob blob-1"></span>
-    <span class="bg-blob blob-2"></span>
-    <span class="bg-blob blob-3"></span>
+<div class="auth-page">
+  <div class="auth-card">
+    <section class="form-panel">
+      <div class="brand-row">
+        <span class="brand-mark"><mat-icon>travel_explore</mat-icon></span>
+        JournHive
+      </div>
 
-    <div class="signup-card">
-        <div class="form-panel">
-            <span class="brand-mark">JOURNHIVE</span>
-            <h2 class="hello-text">Hello!</h2>
-            <p class="sign-text">Sign up to create your account</p>
+      <h1 class="auth-title">Create your account</h1>
+      <p class="auth-subtitle">Start documenting your adventures in under a minute.</p>
 
-            <form class="signup-form" (ngSubmit)="onSignup()" #form="ngForm">
+      <form class="auth-form" (ngSubmit)="onSignup()" #form="ngForm" novalidate>
+        <mat-form-field appearance="outline">
+          <mat-icon matPrefix>person_outline</mat-icon>
+          <mat-label>Name</mat-label>
+          <input matInput type="text" name="name" [(ngModel)]="name" autocomplete="name" required />
+        </mat-form-field>
 
-                <mat-form-field appearance="outline" class="input-field">
-                    <mat-icon matPrefix>person_outline</mat-icon>
-                    <mat-label class="label-name">Name</mat-label>
-                    <input matInput type="text" class="name-input" name="name" [(ngModel)]="name" autocomplete="off" required />
-                </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-icon matPrefix>mail_outline</mat-icon>
+          <mat-label>Email</mat-label>
+          <input matInput type="email" name="email" [(ngModel)]="email" autocomplete="email"
+            (blur)="onEmailBlur()" (input)="resetInput()" required email />
+        </mat-form-field>
+        <p *ngIf="emailExists" class="field-error" role="alert">
+          <mat-icon>error_outline</mat-icon> An account with this email already exists
+        </p>
+        <p *ngIf="validEmail === false && email" class="field-error" role="alert">
+          <mat-icon>error_outline</mat-icon> Please enter a valid Gmail address
+        </p>
 
-                <mat-form-field appearance="outline" class="input-field">
-                    <mat-icon matPrefix>mail_outline</mat-icon>
-                    <mat-label class="label-email">E-mail</mat-label>
-                    <input matInput type="email" class="email-input" name="email" [(ngModel)]="email" autocomplete="off" (blur)="onEmailBlur()"
-                        (input)="resetInput()" required email />
-                </mat-form-field>
-                <p *ngIf="emailExists" class="error-message">Email already exists</p>
-                <p *ngIf="validEmail === false && email" class="error-message">Please enter a valid email</p>
+        <mat-form-field appearance="outline">
+          <mat-icon matPrefix>lock_outline</mat-icon>
+          <mat-label>Password (min. 8 characters)</mat-label>
+          <input matInput [type]="showPassword ? 'text' : 'password'" name="password" [(ngModel)]="password"
+            (ngModelChange)="validatePassword()" autocomplete="new-password"
+            (copy)="disableCopyPaste($event)" (paste)="disableCopyPaste($event)" required />
+          <button matSuffix type="button" class="toggle-visibility" (click)="togglePassword()"
+            [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'">
+            <mat-icon>{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+        </mat-form-field>
+        <p *ngIf="validPassword === false && password" class="field-error" role="alert">
+          <mat-icon>error_outline</mat-icon> Password must contain at least 8 characters
+        </p>
 
-                <div class="password-input-wrapper">
-                    <mat-form-field appearance="outline" class="input-field">
-                        <mat-icon matPrefix>lock_outline</mat-icon>
-                        <mat-label class="label-password">Password</mat-label>
-                        <input matInput class="password-input" [type]="showPassword ? 'text' : 'password'" name="password" [(ngModel)]="password"  (ngModelChange)="validatePassword()"
-                            autocomplete="off" (copy)="disableCopyPaste($event)" (paste)="disableCopyPaste($event)" required />
-                    </mat-form-field>
-                    <mat-icon class="password-icon" (click)="togglePassword()">
-                        {{ showPassword ? 'visibility' : 'visibility_off' }}
-                    </mat-icon>
-                </div>
-                <p *ngIf="validPassword === false && password" class="error-message">Password must contain at least 8 characters</p>
+        <button class="btn btn-primary btn-lg btn-block submit" type="submit"
+          [disabled]="form.invalid || emailExists || !validEmail || !validPassword || loading">
+          <span *ngIf="loading" class="spinner" aria-hidden="true"></span>
+          {{ loading ? 'Creating account…' : 'Create account' }}
+        </button>
+      </form>
 
-                <button mat-raised-button color="primary" class="signup-btn" type="submit"
-                    [disabled]="form.invalid || emailExists || !validEmail || !validPassword">
-                    SIGN UP
-                </button>
-            </form>
+      <p class="auth-footer">
+        Already have an account? <a routerLink="/login">Log in</a>
+      </p>
+    </section>
 
-            <p class="have-account">Already have an account?
-                <a class="login-link" (click)="navigateToLogin()">Login</a>
-            </p>
-        </div>
-
-        <div class="welcome-panel">
-            <span class="deco-circle deco-1"></span>
-            <span class="deco-circle deco-2"></span>
-            <span class="deco-circle deco-3"></span>
-
-            <h1 class="app-logo-panel">
-                <mat-icon class="logo-icon">travel_explore</mat-icon>
-                JOURNHIVE
-            </h1>
-            <h2 class="welcome-text">Create Account!</h2>
-            <p class="welcome-subtext">
-                Begin your journey with JournHive. Save memories as they happen and turn your travels into stories you’ll love revisiting.
-            </p>
-
-            <div class="welcome-features">
-                <span class="feature-chip"><mat-icon>luggage</mat-icon> Plan trips</span>
-                <span class="feature-chip"><mat-icon>collections</mat-icon> Build albums</span>
-                <span class="feature-chip"><mat-icon>auto_stories</mat-icon> Tell stories</span>
-            </div>
-        </div>
-    </div>
+    <aside class="welcome-panel" aria-hidden="true">
+      <span class="eyebrow"><mat-icon>travel_explore</mat-icon> JournHive</span>
+      <h2 class="welcome-title">Turn your travels<br>into stories.</h2>
+      <p class="welcome-text">
+        Save memories as they happen and build a journal you'll love revisiting — one trip at a time.
+      </p>
+      <ul class="feature-list">
+        <li><mat-icon>luggage</mat-icon> Plan and organise your trips</li>
+        <li><mat-icon>collections</mat-icon> Build a photo album for each place</li>
+        <li><mat-icon>auto_stories</mat-icon> Rate every stop and tell its story</li>
+      </ul>
+    </aside>
+  </div>
 </div>

@@ -43,6 +43,7 @@ mongoose.connect(process.env.MONGO_URI, {
   .catch(err => console.error("Db connection failed:", err.message));
 
 const allowedOrigins = [
+  'http://localhost:4200',
   'http://localhost:4300',
   'https://journhive.vercel.app',
   'https://journhive-33.vercel.app',

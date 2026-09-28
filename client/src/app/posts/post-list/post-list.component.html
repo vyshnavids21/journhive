@@ -1,89 +1,288 @@
-<div #postListSection>
-  <div class="post-list-wrapper">
-    <!--loader for trip list-->
-  <div *ngIf="isLoading" class="trip-list skeleton-list">
-    <div class="trip-card skeleton-card" *ngFor="let item of [1,2,3,4,5,6]">
-
-      <div class="trip-image-wrapper skeleton-block"></div>
-
-      <div class="trip-content">
-        <div class="skeleton-title skeleton-block"></div>
-        <div class="skeleton-date skeleton-block"></div>
-
-        <div class="trip-footer">
-          <div class="skeleton-small skeleton-block"></div>
-        </div>
-      </div>
-
+<!-- Compact title bar: trip identity on the left, actions on the right -->
+<section class="trip-bar">
+  <div class="bar-left">
+    <nav aria-label="Breadcrumb">
+      <a class="back-link" routerLink="/trips"><mat-icon>arrow_back</mat-icon>My trips</a>
+    </nav>
+    <span class="bar-divider" aria-hidden="true"></span>
+    <h1 class="trip-title">{{ tripTitle || 'Trip' }}</h1>
+    <div class="trip-meta">
+      <span *ngIf="tripDates" class="meta-chip"><mat-icon>calendar_today</mat-icon>{{ tripDates }}</span>
+      <span *ngIf="!isLoading" class="meta-chip"><mat-icon>place</mat-icon>{{ totalPosts }} {{ totalPosts === 1 ? 'place' : 'places' }}</span>
     </div>
   </div>
-    <div class="post-list" *ngIf="!isLoading && paginatedPosts.length > 0; else noPosts">
-      <div class="post-card" *ngFor="let post of paginatedPosts">
-        <div class="post-image-wrapper" *ngIf="post.image; else noImage">
-          <img [src]="post.image" class="post-image" alt="Post image" crossorigin="anonymous" />
-        </div>
-        <ng-template #noImage>
-          <div class="no-image">
-            <p class="no-image-text">No image uploaded</p>
-          </div>
-        </ng-template>
+  <div class="bar-actions">
+    <button type="button" class="btn btn-secondary" (click)="downloadPosts()" [disabled]="!totalPosts"
+      [title]="totalPosts ? 'Download this trip as a PDF' : 'Add a place to download the trip'">
+      <mat-icon>download</mat-icon>
+      Download PDF
+    </button>
+    <a class="btn btn-accent" [routerLink]="['/create-post', tripId]">
+      <mat-icon>add</mat-icon>
+      Add place
+    </a>
+  </div>
+</section>
 
-        <div class="post-content">
-          <h3 class="post-title">{{ post.title }}</h3>
-          <p class="post-caption">{{ post.caption }}</p>
-
-          <div class="post-value" *ngIf="post.value">
-            <span class="value-badge" [ngClass]="{
-              'value-worth-it': post.value === 'Totally Worth It',
-              'value-worthwhile': post.value === 'Worth Once',
-              'value-barely': post.value === 'Missed Out',
-              'value-not': post.value === 'Not Worth It'
-            }">
-              <mat-icon *ngIf="post.value === 'Totally Worth It'">check_circle</mat-icon>
-              <mat-icon *ngIf="post.value === 'Worth Once'">star</mat-icon>
-              <mat-icon *ngIf="post.value === 'Missed Out'">radio_button_unchecked</mat-icon>
-              <mat-icon *ngIf="post.value === 'Not Worth It'">cancel</mat-icon>
-              {{ post.value }}
+<div class="trip-layout" #postListSection>
+  <!-- ================= Sidebar: trip overview ================= -->
+  <aside class="overview" aria-label="Trip overview">
+    <div class="ov-card">
+      <div class="ov-cover" *ngIf="tripCover">
+        <app-smart-image [src]="tripCover" alt="" [maxWidth]="1200" [backdrop]="false"></app-smart-image>
+      </div>
+      <div class="ov-body">
+        <div class="ov-head">
+          <span class="ov-label">Trip overview</span>
+          <span class="ov-head-right">
+            <span class="status-pill" *ngIf="timing">
+              <span class="dot" [ngClass]="timing.status"></span>{{ statusLabel(timing.status) }}
             </span>
+            <a class="icon-btn" *ngIf="tripId" [routerLink]="['/edit-trip', tripId]" aria-label="Edit trip details" title="Edit trip details">
+              <mat-icon>edit</mat-icon>
+            </a>
+          </span>
+        </div>
+
+        <div class="ticket" *ngIf="tripStart">
+          <div class="leg">
+            <span class="leg-label">Depart</span>
+            <strong>{{ tripStart | date:'MMM d' }}</strong>
+            <span>{{ tripStart | date:'EEE, y' }}</span>
+          </div>
+          <div class="flight">
+            <span class="flight-line"></span>
+            <span class="flight-plane"><mat-icon>flight</mat-icon></span>
+            <span class="flight-days" *ngIf="timing?.days">{{ timing?.days }} {{ timing?.days === 1 ? 'day' : 'days' }}</span>
+          </div>
+          <div class="leg right">
+            <span class="leg-label">Return</span>
+            <strong>{{ (tripEnd || tripStart) | date:'MMM d' }}</strong>
+            <span>{{ (tripEnd || tripStart) | date:'EEE, y' }}</span>
+          </div>
+        </div>
+
+        <dl class="stats">
+          <div>
+            <dt>Timing</dt>
+            <dd>{{ timing?.when || '—' }}</dd>
+          </div>
+          <div>
+            <dt>Places</dt>
+            <dd>{{ isLoading ? '—' : totalPosts }}</dd>
+          </div>
+          <div>
+            <dt>Photos</dt>
+            <dd>{{ isLoading ? '—' : photoCount + '/' + totalPosts }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <!-- How the places were rated -->
+    <div class="ov-card ratings" *ngIf="ratedCount > 0">
+      <div class="ov-head">
+        <span class="ov-label">How it went</span>
+        <span class="ov-sub">{{ ratedCount }} rated</span>
+      </div>
+      <div class="rating-bar" role="img" [attr.aria-label]="'Ratings across ' + ratedCount + ' places'">
+        <span *ngFor="let r of ratingStats" [ngClass]="r.tone" [style.flex-grow]="r.count" [hidden]="!r.count"></span>
+      </div>
+      <ul class="rating-list">
+        <li *ngFor="let r of ratingStats" [class.zero]="!r.count">
+          <span class="swatch" [ngClass]="r.tone"><mat-icon>{{ r.icon }}</mat-icon></span>
+          <span class="r-name">{{ r.name }}</span>
+          <span class="r-count">{{ r.count }}</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Day-by-day navigator: jump to a day in the timeline -->
+    <div class="ov-card days" *ngIf="timelineDays.length > 0">
+      <div class="ov-head">
+        <span class="ov-label">Day by day</span>
+        <span class="ov-sub">{{ timelineDays.length }} {{ timelineDays.length === 1 ? 'day' : 'days' }} logged</span>
+      </div>
+      <ul class="day-list">
+        <li *ngFor="let day of timelineDays">
+          <button type="button" class="day-row" (click)="scrollToDay(day.key)">
+            <span class="day-badge" [class.undated]="day.key === 'undated'">{{ day.dayLabel === 'No date' ? '—' : (day.dayLabel ? day.dayLabel.replace('Day ', '') : '•') }}</span>
+            <span class="day-text">
+              <strong>{{ day.dayLabel || day.dateLabel }}</strong>
+              <small>{{ day.dayLabel && day.key !== 'undated' ? day.dateLabel : (day.key === 'undated' ? 'Date not set' : '') }}</small>
+            </span>
+            <span class="day-meter" aria-hidden="true"><span [style.width.%]="day.count / maxDayCount * 100"></span></span>
+            <span class="day-count">{{ day.count }} {{ day.count === 1 ? 'place' : 'places' }}</span>
+            <mat-icon class="day-go">chevron_right</mat-icon>
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Empty trips: a short guide instead of blank space -->
+    <div class="ov-card guide" *ngIf="!isLoading && totalPosts === 0">
+      <div class="ov-head">
+        <span class="ov-label">Get started</span>
+      </div>
+      <ol class="guide-steps">
+        <li>
+          <span class="g-icon"><mat-icon>add_location_alt</mat-icon></span>
+          <span><strong>Add a place</strong><small>A sight, a meal, a hike — with a photo and notes.</small></span>
+        </li>
+        <li>
+          <span class="g-icon"><mat-icon>verified</mat-icon></span>
+          <span><strong>Rate it</strong><small>Mark whether it was worth it, for next time.</small></span>
+        </li>
+        <li>
+          <span class="g-icon"><mat-icon>picture_as_pdf</mat-icon></span>
+          <span><strong>Share the trip</strong><small>Download everything as a tidy PDF.</small></span>
+        </li>
+      </ol>
+    </div>
+  </aside>
+
+  <!-- ================= Main: itinerary ================= -->
+  <section class="itinerary" aria-label="Itinerary">
+    <div class="it-head" *ngIf="isLoading || totalPosts > 0">
+      <div>
+        <h2>Itinerary</h2>
+        <p>{{ isLoading ? 'Loading places…' : totalPosts + (totalPosts === 1 ? ' place' : ' places') + ' on this trip' }}</p>
+      </div>
+      <div class="view-toggle" role="tablist" aria-label="Itinerary view">
+        <button type="button" role="tab" [class.active]="viewMode === 'timeline'" [attr.aria-selected]="viewMode === 'timeline'" (click)="setView('timeline')">
+          <mat-icon>timeline</mat-icon>Timeline
+        </button>
+        <button type="button" role="tab" [class.active]="viewMode === 'grid'" [attr.aria-selected]="viewMode === 'grid'" (click)="setView('grid')">
+          <mat-icon>grid_view</mat-icon>Grid
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading skeletons -->
+    <div *ngIf="isLoading" class="card-grid places-grid" aria-busy="true" aria-label="Loading places">
+      <div class="post-card card skeleton-card" *ngFor="let item of [1,2,3]">
+        <div class="post-media skeleton"></div>
+        <div class="post-body">
+          <div class="skeleton sk-title"></div>
+          <div class="skeleton sk-line"></div>
+          <div class="skeleton sk-line"></div>
+          <div class="skeleton sk-line short"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline view: places grouped by day -->
+    <ol class="timeline" *ngIf="!isLoading && totalPosts > 0 && viewMode === 'timeline'">
+      <li class="tl-day" *ngFor="let day of timelineDays; let i = index" [id]="'day-' + day.key" [style.animation-delay.ms]="i * 50">
+        <div class="tl-marker" [class.undated]="day.key === 'undated'">
+          <span class="tl-dot"></span>
+        </div>
+        <div class="tl-content">
+          <header class="tl-date">
+            <span class="tl-daynum" *ngIf="day.dayLabel">{{ day.dayLabel }}</span>
+            <span>{{ day.dateLabel }}</span>
+          </header>
+
+          <article class="tl-place" *ngFor="let post of day.posts">
+            <div class="tl-thumb">
+              <app-smart-image *ngIf="post.image; else tlNoImage" [src]="post.image" [alt]="post.title"
+                crossorigin="anonymous" [maxWidth]="800" [keepShape]="true" [backdrop]="false"></app-smart-image>
+              <ng-template #tlNoImage><span class="tl-noimg"><mat-icon>image_not_supported</mat-icon></span></ng-template>
+            </div>
+            <div class="tl-body">
+              <div class="tl-title-row">
+                <h3>{{ post.title }}</h3>
+                <span *ngIf="post.value" class="value-badge inline" [ngClass]="valueMeta(post.value).tone">
+                  <mat-icon>{{ valueMeta(post.value).icon }}</mat-icon>{{ post.value }}
+                </span>
+              </div>
+              <p class="post-caption" [class.expanded]="isExpanded(post.id)">{{ post.caption }}</p>
+              <div class="tl-foot">
+                <button *ngIf="post.caption && post.caption.length > captionPreviewLength" type="button" class="read-more"
+                  (click)="toggleExpanded(post.id)" [attr.aria-expanded]="isExpanded(post.id)">
+                  {{ isExpanded(post.id) ? 'Show less' : 'Read more' }}
+                </button>
+                <span class="tl-actions">
+                  <a class="icon-btn" [routerLink]="['/edit', post.id]" aria-label="Edit place" title="Edit place"><mat-icon>edit</mat-icon></a>
+                  <button type="button" class="icon-btn danger" (click)="deletePost(post.id)" aria-label="Delete place" title="Delete place">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                </span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </li>
+    </ol>
+
+    <!-- Grid view -->
+    <div class="card-grid places-grid" *ngIf="!isLoading && paginatedPosts.length > 0 && viewMode === 'grid'">
+      <article class="post-card card" *ngFor="let post of paginatedPosts">
+        <div class="post-media">
+          <app-smart-image *ngIf="post.image; else noImage" [src]="post.image" [alt]="post.title" crossorigin="anonymous"
+            position="center 30%" [maxWidth]="1600" [keepShape]="true"></app-smart-image>
+          <ng-template #noImage>
+            <div class="media-placeholder">
+              <mat-icon>image_not_supported</mat-icon>
+              <span>No photo</span>
+            </div>
+          </ng-template>
+
+          <span *ngIf="post.value" class="value-badge" [ngClass]="valueMeta(post.value).tone">
+            <mat-icon>{{ valueMeta(post.value).icon }}</mat-icon>
+            {{ post.value }}
+          </span>
+        </div>
+
+        <div class="post-body">
+          <h2 class="post-title">{{ post.title }}</h2>
+          <p class="post-date" *ngIf="post.date">
+            <mat-icon>event</mat-icon>
+            {{ formatDate(post.date) }}
+          </p>
+
+          <div class="post-text">
+            <p class="post-caption" [class.expanded]="isExpanded(post.id)">{{ post.caption }}</p>
+            <button *ngIf="post.caption && post.caption.length > captionPreviewLength" type="button" class="read-more"
+              (click)="toggleExpanded(post.id)" [attr.aria-expanded]="isExpanded(post.id)">
+              {{ isExpanded(post.id) ? 'Show less' : 'Read more' }}
+            </button>
           </div>
 
           <div class="post-footer">
-            <div class="post-date">
-              <mat-icon>event</mat-icon>
-              <span>{{ post.date | date: 'mediumDate' }}</span>
-            </div>
-            <div class="post-actions">
-              <button mat-icon-button color="primary" [routerLink]="['/edit', post.id]" matTooltip="Edit Post">
-                <mat-icon>edit</mat-icon>
-              </button>
-              <button mat-icon-button color="warn" (click)="deletePost(post.id)" matTooltip="Delete Post"
-                class="delete-btn">
-                <mat-icon>delete</mat-icon>
-              </button>
-            </div>
+            <a class="btn btn-ghost btn-sm" [routerLink]="['/edit', post.id]">
+              <mat-icon>edit</mat-icon>
+              Edit
+            </a>
+            <button type="button" class="icon-btn danger" (click)="deletePost(post.id)" aria-label="Delete place" title="Delete place">
+              <mat-icon>delete_outline</mat-icon>
+            </button>
           </div>
         </div>
-      </div>
+      </article>
     </div>
 
-    <ng-template #noPosts>
-      <div class="no-post">
-        <div class="no-post-card">
-          <div class="no-post-icon">
-            <mat-icon>travel_explore</mat-icon>
-          </div>
-          <h2 class="no-post-title">No posts yet</h2>
-          <p class="no-post-subtitle">Start capturing this trip — add your first post and bring the journey to life.</p>
-          <button mat-button class="no-post-cta" [routerLink]="['/create-post', tripId]">
-            <mat-icon>add</mat-icon>
-            Add your first post
-          </button>
-        </div>
+    <!-- Empty state -->
+    <div class="empty-panel" *ngIf="!isLoading && paginatedPosts.length === 0">
+      <div class="empty-art" aria-hidden="true">
+        <span class="ring r1"></span>
+        <span class="ring r2"></span>
+        <span class="empty-icon"><mat-icon>add_location_alt</mat-icon></span>
+        <span class="float f1"><mat-icon>photo_camera</mat-icon></span>
+        <span class="float f2"><mat-icon>restaurant</mat-icon></span>
+        <span class="float f3"><mat-icon>hiking</mat-icon></span>
       </div>
-    </ng-template>
+      <h2>No places yet</h2>
+      <p>Add the spots you visited — sights, meals, hikes — with a photo, notes and whether it was worth it. They'll appear here as your day-by-day itinerary.</p>
+      <a class="btn btn-lg btn-accent" [routerLink]="['/create-post', tripId]">
+        <mat-icon>add</mat-icon>
+        Add your first place
+      </a>
+    </div>
 
-    <mat-paginator *ngIf="paginatedPosts.length > 0" class="paginator" [length]="totalPosts" [pageSize]="pageSize"
-      [pageSizeOptions]="filteredPageSizeOptions" (page)="onChangePage($event)">
+    <mat-paginator *ngIf="!isLoading && viewMode === 'grid' && totalPosts > pageSizeOptions[0]" [length]="totalPosts" [pageSize]="pageSize"
+      [pageIndex]="currentPage" [pageSizeOptions]="filteredPageSizeOptions" (page)="onChangePage($event)"
+      aria-label="Select page of places">
     </mat-paginator>
-  </div>
+  </section>
 </div>
