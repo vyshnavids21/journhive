@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
-import { Post } from './models/post.model';
 import { Router } from '@angular/router';
+
+const AUTH_ROUTES = ['/login', '/signup', '/forgot-password', '/reset-password'];
 
 @Component({
   selector: 'app-root',
@@ -9,19 +10,11 @@ import { Router } from '@angular/router';
 })
 export class AppComponent {
 
-  storedPosts: Post[] = [];
-
-  constructor(private router: Router) {
-
-  }
-
-  onAddPost(post: any) {
-    this.storedPosts.push(post);
-    this.storedPosts = [...this.storedPosts];
-  }
+  constructor(private router: Router) { }
 
   showHeader(): boolean {
-    return !(this.router.url === '/login' || this.router.url === '/signup');
+    const path = this.router.url.split(/[?#]/)[0];
+    return path !== '/' && !AUTH_ROUTES.includes(path);
   }
 
 }

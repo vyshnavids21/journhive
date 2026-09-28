@@ -18,7 +18,8 @@ import { MatOptionModule } from '@angular/material/core';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatNativeDateModule } from '@angular/material/core';
+import { MatNativeDateModule, DateAdapter, MAT_DATE_FORMATS } from '@angular/material/core';
+import { AppDateAdapter, APP_DATE_FORMATS } from './shared/date-adapter';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 
 import { AppRoutingModule } from './app-routing.module';
@@ -33,6 +34,7 @@ import { TripDashboardComponent } from './trip-dashboard/trip-dashboard.componen
 import { TripCreateComponent } from './trip-create/trip-create.component';
 import { ForgotPasswordComponent } from './auth/forgot-password/forgot-password.component';
 import { ResetPasswordComponent } from './auth/reset-password/reset-password.component';
+import { SmartImageComponent } from './shared/smart-image/smart-image.component';
 
 
 @NgModule({
@@ -48,6 +50,7 @@ import { ResetPasswordComponent } from './auth/reset-password/reset-password.com
     TripCreateComponent,
     ForgotPasswordComponent,
     ResetPasswordComponent,
+    SmartImageComponent,
   ],
   imports: [
     BrowserModule,
@@ -77,7 +80,9 @@ import { ResetPasswordComponent } from './auth/reset-password/reset-password.com
     MatDatepickerModule
   ],
   providers: [
-    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }
+    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+    { provide: DateAdapter, useClass: AppDateAdapter },
+    { provide: MAT_DATE_FORMATS, useValue: APP_DATE_FORMATS }
   ],
   bootstrap: [AppComponent]
 })

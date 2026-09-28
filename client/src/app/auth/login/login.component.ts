@@ -16,6 +16,7 @@ export class LoginComponent implements OnInit {
   validEmail: boolean = true;
   incorrectPassword: boolean = false;
   userNotFound: boolean = false;
+  loading: boolean = false;
 
   constructor(private router: Router, private postsService: PostsService, private toastrService: ToastrService) { }
 
@@ -23,20 +24,20 @@ export class LoginComponent implements OnInit {
    
   }
 
-  navigateToSignup() {
-   this.router.navigate(['/signup']);
-  }
-
   togglePassword() {
     this.showPassword = !this.showPassword;
   }
 
   onLogin() {
+    if (this.loading) {
+      return;
+    }
+    this.loading = true;
     const loginData = new FormData();
     loginData.append('email', this.email);
     loginData.append('password', this.password);
     this.postsService.saveLoginData(loginData).subscribe((res) => {
-      console.log('response in login component', res)
+      this.loading = false;
       const token = (res as any)?.token;
       if (token) {
         this.postsService.setToken(token);
@@ -49,15 +50,17 @@ export class LoginComponent implements OnInit {
       if(loggedInUserEmail) {
         this.postsService.setUserEmail(loggedInUserEmail);
       }
-      this.toastrService.success('Login successful', 'Success');
+      this.toastrService.success('Good to see you again.', 'Logged in');
       this.router.navigate(['/trips']);
     }, (err) => {
-       if(err.status === 401) {
+      this.loading = false;
+      if (err.status === 401) {
         this.incorrectPassword = true;
-       } else if(err.status === 400) {
-         this.userNotFound = true;
-       }
-      // this.toastrService.error('Login failed', 'Error');
+      } else if (err.status === 400) {
+        this.userNotFound = true;
+      } else {
+        this.toastrService.error('Something went wrong. Please try again.', 'Login failed');
+      }
     });
   }
 
@@ -83,10 +86,6 @@ export class LoginComponent implements OnInit {
 
   disableCopyPaste(event: ClipboardEvent) {
     event.preventDefault();
-  }
-
-  navigateToForgotPassword() {
-    this.router.navigate(['/forgot-password']);
   }
 
 }

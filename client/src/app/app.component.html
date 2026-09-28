@@ -1,6 +1,4 @@
-<app-header *ngIf="showHeader()" class="header" ></app-header>
-<main>
-    <!-- <app-post-create (postCreated)="onAddPost($event)"></app-post-create>
-    <app-post-list [postListArray] = "storedPosts"></app-post-list> -->
-    <router-outlet></router-outlet>
+<app-header *ngIf="showHeader()"></app-header>
+<main id="main-content" [class.with-header]="showHeader()">
+  <router-outlet></router-outlet>
 </main>

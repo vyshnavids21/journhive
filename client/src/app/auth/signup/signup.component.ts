@@ -18,6 +18,7 @@ export class SignupComponent implements OnInit {
   emailExists: boolean = false;
   validEmail: boolean = true;
   validPassword: boolean = true;
+  loading: boolean = false;
 
   constructor(private router: Router, private postsService: PostsService,
     private toastrService: ToastrService
@@ -28,11 +29,16 @@ export class SignupComponent implements OnInit {
   }
 
   onSignup() {
+    if (this.loading) {
+      return;
+    }
+    this.loading = true;
     const signupData = new FormData();
     signupData.append('name', this.name);
     signupData.append('email', this.email);
     signupData.append('password', this.password)
     this.postsService.saveSignupData(signupData).subscribe((res) => {
+      this.loading = false;
       const token = (res as any)?.token;
       if (token) {
         this.postsService.setToken(token);
@@ -45,16 +51,13 @@ export class SignupComponent implements OnInit {
       if(loggedInUserEmail) {
         this.postsService.setUserEmail(loggedInUserEmail);
       }
-      this.toastrService.success('Signup successfull', 'Success');
+      this.toastrService.success('Your account is ready. Happy travels!', 'Welcome to JournHive');
       this.router.navigate(['/trips']);
     }, (err) => {
+      this.loading = false;
       const message = err?.error?.message || 'Signup failed';
       this.toastrService.error(message, 'Error');
     });
-  }
-
-  navigateToLogin() {
-    this.router.navigate(['/login']);
   }
 
   togglePassword() {

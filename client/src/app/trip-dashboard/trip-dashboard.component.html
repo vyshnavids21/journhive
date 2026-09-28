@@ -1,83 +1,157 @@
-<div class="trip-list-wrapper">
-<!--loader for trip list-->
-  <div *ngIf="isLoading" class="trip-list skeleton-list">
-    <div class="trip-card skeleton-card" *ngFor="let item of [1,2,3,4,5,6]">
+<div class="page dashboard">
+  <header class="dash-header">
+    <div class="dash-intro">
+      <p class="eyebrow">Your travel journal</p>
+      <h1 class="page-title">My trips</h1>
+      <p class="page-subtitle">Every journey you've documented — the places, the dates and the stories behind them.</p>
+    </div>
 
-      <div class="trip-image-wrapper skeleton-block"></div>
-
-      <div class="trip-content">
-        <div class="skeleton-title skeleton-block"></div>
-        <div class="skeleton-date skeleton-block"></div>
-
-        <div class="trip-footer">
-          <div class="skeleton-small skeleton-block"></div>
-        </div>
+    <dl class="stats" *ngIf="!isLoading && totalPosts > 0">
+      <div class="stat">
+        <dt><mat-icon>luggage</mat-icon>Trips</dt>
+        <dd>{{ totalPosts }}</dd>
       </div>
+      <div class="stat">
+        <dt><mat-icon>place</mat-icon>Places</dt>
+        <dd>{{ stats.places }}</dd>
+      </div>
+      <div class="stat" *ngIf="stats.days">
+        <dt><mat-icon>wb_sunny</mat-icon>Days away</dt>
+        <dd>{{ stats.days }}</dd>
+      </div>
+    </dl>
+  </header>
 
+  <!-- Filters & sorting -->
+  <div class="toolbar" *ngIf="!isLoading && totalPosts > 0">
+    <div class="tabs" role="tablist" aria-label="Filter trips">
+      <ng-container *ngFor="let f of filters">
+        <button *ngIf="f.key !== 'ongoing' || counts.ongoing" type="button" role="tab" class="tab"
+          [class.active]="filter === f.key" [attr.aria-selected]="filter === f.key" (click)="setFilter(f.key)">
+          <span *ngIf="f.key !== 'all'" class="dot" [ngClass]="f.key"></span>
+          {{ f.label }}
+          <span class="count">{{ counts[f.key] }}</span>
+        </button>
+      </ng-container>
+    </div>
+
+    <div class="sort" (keydown)="onSortKeydown($event)">
+      <button #sortTrigger type="button" class="sort-trigger" [class.open]="sortOpen" (click)="toggleSort($event)"
+        aria-haspopup="listbox" [attr.aria-expanded]="sortOpen" aria-controls="sort-menu"
+        [attr.aria-activedescendant]="sortOpen ? 'sort-opt-' + sortIndex : null">
+        <mat-icon class="lead">swap_vert</mat-icon>
+        <span class="sort-prefix">Sort by</span>
+        <span class="sort-value">{{ currentSort.label }}</span>
+        <mat-icon class="caret">expand_more</mat-icon>
+      </button>
+
+      <ul *ngIf="sortOpen" id="sort-menu" class="sort-menu" role="listbox" aria-label="Sort trips" (click)="$event.stopPropagation()">
+        <li class="menu-heading" role="presentation">Sort trips by</li>
+        <li *ngFor="let s of sorts; let i = index" [id]="'sort-opt-' + i" role="option"
+          class="sort-option" [class.active]="i === sortIndex" [class.selected]="s.key === sort"
+          [attr.aria-selected]="s.key === sort" (click)="chooseSort(s.key)" (mouseenter)="sortIndex = i">
+          <span class="opt-icon"><mat-icon>{{ s.icon }}</mat-icon></span>
+          <span class="opt-text">
+            <span class="opt-label">{{ s.label }}</span>
+            <span class="opt-hint">{{ s.hint }}</span>
+          </span>
+          <mat-icon class="check" *ngIf="s.key === sort">check</mat-icon>
+        </li>
+      </ul>
     </div>
   </div>
 
-  <div class="trip-list" *ngIf="!isLoading && paginatedPosts.length > 0; else noPosts">
-    <div class="trip-card" *ngFor="let trip of paginatedPosts">
-      <div class="trip-image-wrapper" *ngIf="trip.coverPhoto">
-        <img [src]="trip.coverPhoto" class="trip-image" alt="Trip image" />
-      </div>
-
-      <div class="trip-content">
-        <h3 class="trip-title">{{ trip.destination }}</h3>
-
-        <p class="trip-dates">
-          {{ trip.startDate }} – {{ trip.endDate }}
-        </p>
-
-        <button class="view-trip-button" (click)="viewTrip(trip)">
-          View Trip
-        </button>
-
-        <div class="trip-footer">
-          <div class="trip-places">
-           <mat-icon>location_on</mat-icon>
-           <span class="trip-count">
-            {{ trip.postsCount || 0 }}
-            {{ (trip.postsCount || 0) === 1 ? 'Travel spot' : 'Travel spots' }}
-           </span>
-          </div>
-          <div class="trip-actions">
-            <button mat-icon-button [routerLink]="['/edit-trip', trip.id || trip._id]">
-              <mat-icon>edit</mat-icon>
-            </button>
-
-            <button mat-icon-button (click)="deletePost(trip.id || trip._id)" class="delete-btn">
-              <mat-icon>delete</mat-icon>
-            </button>
-          </div>
-        </div>
+  <!-- Loading skeletons -->
+  <div *ngIf="isLoading" class="card-grid trip-grid" aria-busy="true" aria-label="Loading trips">
+    <div class="trip-card card skeleton-card" *ngFor="let item of [1,2,3,4,5,6,7,8]">
+      <div class="media skeleton"></div>
+      <div class="trip-body">
+        <div class="skeleton sk-title"></div>
+        <div class="skeleton sk-line"></div>
+        <div class="skeleton sk-line short"></div>
       </div>
     </div>
   </div>
 
-  <ng-template #noPosts>
-    <div class="no-post">
-      <div class="no-post-card">
-        <div class="no-post-icon">
-          <mat-icon>luggage</mat-icon>
+  <div class="card-grid trip-grid" *ngIf="!isLoading && totalPosts > 0 && paginatedPosts.length > 0">
+    <!-- Primary call to action, always first in the grid -->
+    <a class="plan-card" routerLink="/create-trip" *ngIf="currentPage === 0">
+      <span class="plan-icon"><mat-icon>add</mat-icon></span>
+      <span class="plan-title">Plan a new trip</span>
+      <span class="plan-text">Start a fresh journal for your next adventure — add places as you go.</span>
+      <span class="plan-cta">Get started <mat-icon>arrow_forward</mat-icon></span>
+    </a>
+
+    <article class="trip-card card" *ngFor="let trip of paginatedPosts; let i = index" [style.animation-delay.ms]="i * 40">
+      <div class="media">
+        <app-smart-image *ngIf="trip.coverPhoto; else noCover" [src]="trip.coverPhoto" [alt]="trip.destination"
+          [maxWidth]="1600" [keepShape]="true"></app-smart-image>
+        <ng-template #noCover>
+          <span class="cover-placeholder"><mat-icon>landscape</mat-icon></span>
+        </ng-template>
+
+        <span class="status" [ngClass]="trip.status">
+          <span class="dot" [ngClass]="trip.status"></span>{{ statusLabel(trip.status) }}
+        </span>
+
+        <div class="card-actions">
+          <a class="icon-btn glass" [routerLink]="['/edit-trip', trip.id || trip._id]" aria-label="Edit trip" title="Edit trip">
+            <mat-icon>edit</mat-icon>
+          </a>
+          <button type="button" class="icon-btn glass danger" (click)="deletePost(trip.id || trip._id)" aria-label="Delete trip" title="Delete trip">
+            <mat-icon>delete_outline</mat-icon>
+          </button>
         </div>
-        <h2 class="no-post-title">No trips yet</h2>
-        <p class="no-post-subtitle">Your adventures live here. Create your first trip and start capturing the journey.</p>
-        <button mat-button class="no-post-cta" routerLink="/create-trip">
-          <mat-icon>add</mat-icon>
-          Create your first trip
-        </button>
       </div>
+
+      <div class="trip-body">
+        <div class="title-row">
+          <h2 class="trip-title" [title]="trip.destination">
+            <!-- Stretched button: the whole card opens the trip -->
+            <button type="button" class="stretched" (click)="viewTrip(trip)">{{ trip.destination }}</button>
+          </h2>
+          <span class="go" aria-hidden="true"><mat-icon>arrow_forward</mat-icon></span>
+        </div>
+
+        <p class="trip-dates">{{ formatRange(trip.startDate, trip.endDate) }}<ng-container *ngIf="trip.when"> · <span class="when">{{ trip.when }}</span></ng-container></p>
+
+        <div class="chips">
+          <span class="chip"><mat-icon>place</mat-icon>{{ trip.postsCount || 0 }} {{ (trip.postsCount || 0) === 1 ? 'place' : 'places' }}</span>
+          <span class="chip" *ngIf="trip.days"><mat-icon>schedule</mat-icon>{{ trip.days }} {{ trip.days === 1 ? 'day' : 'days' }}</span>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <!-- Nothing matches the current filter -->
+  <div class="empty-state" *ngIf="!isLoading && totalPosts > 0 && filteredTrips.length === 0">
+    <div class="empty-icon"><mat-icon>{{ filter === 'upcoming' ? 'flight_takeoff' : 'filter_alt_off' }}</mat-icon></div>
+    <h2>No {{ filterLabel }} trips</h2>
+    <p>{{ filter === 'upcoming' ? 'Nothing on the horizon yet — plan your next adventure.' : 'Try a different filter to see more of your trips.' }}</p>
+    <div class="empty-actions">
+      <button type="button" class="btn btn-secondary" (click)="setFilter('all')">Show all trips</button>
+      <a *ngIf="filter === 'upcoming'" class="btn btn-primary" routerLink="/create-trip"><mat-icon>add</mat-icon>Plan a trip</a>
     </div>
-  </ng-template>
+  </div>
+
+  <!-- No trips at all -->
+  <div class="empty-state" *ngIf="!isLoading && totalPosts === 0">
+    <div class="empty-icon"><mat-icon>luggage</mat-icon></div>
+    <h2>No trips yet</h2>
+    <p>Your adventures live here. Create your first trip and start capturing the journey.</p>
+    <a class="btn btn-primary" routerLink="/create-trip">
+      <mat-icon>add</mat-icon>
+      Create your first trip
+    </a>
+  </div>
 
   <mat-paginator
-    *ngIf="paginatedPosts.length > 0"
-    class="paginator"
-    [length]="totalPosts"
+    *ngIf="!isLoading && filteredTrips.length > pageSizeOptions[0]"
+    [length]="filteredTrips.length"
     [pageSize]="pageSize"
+    [pageIndex]="currentPage"
     [pageSizeOptions]="filteredPageSizeOptions"
-    (page)="onChangePage($event)">
+    (page)="onChangePage($event)"
+    aria-label="Select page of trips">
   </mat-paginator>
 </div>

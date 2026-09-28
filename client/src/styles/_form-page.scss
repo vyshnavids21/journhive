@@ -1,0 +1,359 @@
+/* Full-viewport editor used by the create/edit screens (trips and places):
+   a large photo stage on the left, the form panel on the right.
+   Imported by trip-create and post-create. */
+
+:host {
+  display: block;
+  height: 100%;
+}
+
+.editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(440px, 36vw, 680px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "media head"
+    "media body"
+    "media actions";
+  height: 100%;
+  min-height: 560px;
+}
+
+/* Right-hand panel surface, shared by its three areas */
+.panel-head,
+.panel-body,
+.form-actions {
+  background: var(--c-surface);
+  border-left: 1px solid var(--c-border);
+}
+
+/* ---- Photo stage ---- */
+.editor-media {
+  grid-area: media;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(16px, 2vw, 32px);
+  background:
+    radial-gradient(circle at 20% 10%, rgba(34, 197, 94, 0.08), transparent 45%),
+    radial-gradient(circle at 90% 90%, rgba(30, 95, 192, 0.08), transparent 45%),
+    var(--c-bg);
+  animation: pageIn 360ms var(--ease-out) both;
+}
+
+.media-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-text);
+
+  .optional {
+    font-weight: 400;
+    color: var(--c-text-subtle);
+  }
+}
+
+.media-toolbar .field-label {
+  margin: 0;
+}
+
+.dropzone {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--c-border-strong);
+  border-radius: var(--r-xl);
+  background: rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+  cursor: pointer;
+  isolation: isolate;
+  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, opacity var(--dur-base) ease;
+
+  &:hover,
+  &.dragging {
+    border-color: var(--c-green-500);
+    background: #F0FDF4;
+  }
+
+  &.has-image {
+    border: none;
+    background: var(--c-navy-900);
+    box-shadow: var(--shadow-md);
+  }
+
+  &.muted {
+    opacity: 0.55;
+  }
+}
+
+/* The photo is shown whole, over a blurred copy of itself */
+.dz-blur {
+  position: absolute;
+  inset: -40px;
+  z-index: -1;
+  width: calc(100% + 80px);
+  height: calc(100% + 80px);
+  max-width: none;
+  object-fit: cover;
+  filter: blur(36px) brightness(0.75) saturate(1.2);
+}
+
+/* Shown whole and never enlarged past its native pixel size, so previews stay sharp */
+.dz-image {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+  object-fit: contain;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Photo resolution, top-left of the preview */
+.resolution-chip {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: rgba(10, 28, 56, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--c-green-500);
+  }
+
+}
+
+.dropzone-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+  pointer-events: none;
+
+  .dz-icon {
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    margin-bottom: 10px;
+    border-radius: 50%;
+    background: var(--c-surface);
+    box-shadow: var(--shadow-md);
+    color: var(--c-primary);
+    transition: transform var(--dur-base) var(--ease-out);
+
+    mat-icon {
+      font-size: 34px;
+      width: 34px;
+      height: 34px;
+    }
+  }
+
+  strong {
+    font-size: 16px;
+    color: var(--c-text);
+  }
+
+  span {
+    font-size: 14px;
+    color: var(--c-text-subtle);
+  }
+}
+
+.dropzone:hover .dz-icon,
+.dropzone.dragging .dz-icon {
+  transform: translateY(-3px) scale(1.05);
+}
+
+.dropzone-overlay {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--c-primary);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  transition: transform var(--dur-fast) ease;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.dropzone:hover .dropzone-overlay {
+  transform: translateY(-2px);
+}
+
+/* ---- Form panel ---- */
+.panel-head {
+  grid-area: head;
+  padding: 24px clamp(24px, 2.4vw, 44px) 0;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 16px -6px;
+  padding: 4px 10px 4px 2px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--c-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    color: var(--c-primary);
+    background: var(--c-surface-2);
+  }
+}
+
+.form-title {
+  font-size: clamp(24px, 1.8vw, 32px);
+  font-weight: 800;
+  color: var(--c-text);
+}
+
+.form-subtitle {
+  margin-top: 6px;
+  color: var(--c-text-muted);
+  line-height: 1.55;
+}
+
+.panel-body {
+  grid-area: body;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px clamp(24px, 2.4vw, 44px);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.form-actions {
+  grid-area: actions;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px clamp(24px, 2.4vw, 44px);
+  border-top: 1px solid var(--c-border);
+}
+
+/* ---- Smaller screens: stack, and let the page scroll ---- */
+@media (max-width: 900px) {
+  :host {
+    height: auto;
+  }
+
+  .editor {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-template-areas: "head" "media" "body" "actions";
+    height: auto;
+    min-height: 0;
+  }
+
+  .panel-head,
+  .panel-body,
+  .form-actions {
+    border-left: none;
+  }
+
+  .editor-media {
+    padding: 16px var(--gutter);
+    background: var(--c-surface);
+  }
+
+  .dropzone {
+    flex: none;
+    height: clamp(220px, 42vh, 380px);
+  }
+
+  .panel-head {
+    padding-bottom: 4px;
+  }
+
+  .panel-body {
+    overflow: visible;
+  }
+
+  .form-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    box-shadow: 0 -6px 20px rgba(16, 62, 126, 0.06);
+  }
+}
+
+@media (max-width: 560px) {
+  .panel-head,
+  .panel-body,
+  .form-actions {
+    padding-left: var(--gutter);
+    padding-right: var(--gutter);
+  }
+
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .form-actions .btn {
+    flex: 1;
+  }
+}
