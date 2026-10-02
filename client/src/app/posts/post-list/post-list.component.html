@@ -12,10 +12,11 @@
     </div>
   </div>
   <div class="bar-actions">
-    <button type="button" class="btn btn-secondary" (click)="downloadPosts()" [disabled]="!totalPosts"
+    <button type="button" class="btn btn-secondary" (click)="downloadPosts()" [disabled]="!totalPosts || pdfBusy"
       [title]="totalPosts ? 'Download this trip as a PDF' : 'Add a place to download the trip'">
-      <mat-icon>download</mat-icon>
-      Download PDF
+      <span *ngIf="pdfBusy" class="spinner dark" aria-hidden="true"></span>
+      <mat-icon *ngIf="!pdfBusy">download</mat-icon>
+      {{ pdfBusy ? 'Preparing PDF…' : 'Download PDF' }}
     </button>
     <a class="btn btn-accent" [routerLink]="['/create-post', tripId]">
       <mat-icon>add</mat-icon>

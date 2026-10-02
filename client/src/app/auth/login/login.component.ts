@@ -14,8 +14,7 @@ export class LoginComponent implements OnInit {
   password = "";
   showPassword: boolean = false;
   validEmail: boolean = true;
-  incorrectPassword: boolean = false;
-  userNotFound: boolean = false;
+  invalidCredentials: boolean = false;
   loading: boolean = false;
 
   constructor(private router: Router, private postsService: PostsService, private toastrService: ToastrService) { }
@@ -54,10 +53,9 @@ export class LoginComponent implements OnInit {
       this.router.navigate(['/trips']);
     }, (err) => {
       this.loading = false;
+      // One generic message for a wrong email or password, so the UI never reveals which accounts exist
       if (err.status === 401) {
-        this.incorrectPassword = true;
-      } else if (err.status === 400) {
-        this.userNotFound = true;
+        this.invalidCredentials = true;
       } else {
         this.toastrService.error('Something went wrong. Please try again.', 'Login failed');
       }
@@ -77,11 +75,11 @@ export class LoginComponent implements OnInit {
 
   resetEmail() {
     this.validEmail = true;
+    this.invalidCredentials = false;
   }
 
   resetPassword() {
-    this.incorrectPassword = false;
-    this.userNotFound = false;
+    this.invalidCredentials = false;
   }
 
   disableCopyPaste(event: ClipboardEvent) {

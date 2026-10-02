@@ -11,7 +11,6 @@ import { ToastrService } from 'ngx-toastr';
 export class ForgotPasswordComponent {
   email: string = '';
   validEmail: boolean | null = null;
-  emailNotFound: boolean = false;
   loading: boolean = false;
 
   constructor(private router: Router, private postsService: PostsService, private toastrService: ToastrService) {}
@@ -23,7 +22,6 @@ export class ForgotPasswordComponent {
 
   resetEmail() {
     this.validEmail = null;
-    this.emailNotFound = false;
   }
 
   onSubmit() {
@@ -33,7 +31,6 @@ export class ForgotPasswordComponent {
     }
 
     this.loading = true;
-    this.emailNotFound = false;
 
     this.postsService.forgotPassword(this.email).subscribe({
       next: (res) => {
@@ -43,16 +40,13 @@ export class ForgotPasswordComponent {
         if (res?.previewUrl) {
           console.log('Password reset email preview:', res.previewUrl);
         }
-        this.toastrService.success(`We've sent a reset link to ${this.email}.`, 'Check your inbox');
+        // Same message whether or not the account exists, so the page never reveals registered emails
+        this.toastrService.success('If an account exists for this email, we\'ve sent a password reset link.', 'Check your inbox');
         this.navigateToLogin();
       },
-      error: (err) => {
+      error: () => {
         this.loading = false;
-        if (err.status === 404) {
-          this.emailNotFound = true;
-        } else {
-          this.toastrService.error('Something went wrong. Please try again later.', 'Error');
-        }
+        this.toastrService.error('Something went wrong. Please try again later.', 'Error');
       }
     });
   }
