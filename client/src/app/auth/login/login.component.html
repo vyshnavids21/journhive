@@ -19,9 +19,6 @@
         <p *ngIf="validEmail === false && email" class="field-error" role="alert">
           <mat-icon>error_outline</mat-icon> Please enter a valid Gmail address
         </p>
-        <p *ngIf="userNotFound && validEmail" class="field-error" role="alert">
-          <mat-icon>error_outline</mat-icon> We couldn't find an account with that email
-        </p>
 
         <mat-form-field appearance="outline">
           <mat-icon matPrefix>lock_outline</mat-icon>
@@ -34,8 +31,8 @@
             <mat-icon>{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
           </button>
         </mat-form-field>
-        <p *ngIf="incorrectPassword" class="field-error" role="alert">
-          <mat-icon>error_outline</mat-icon> Email and password don't match
+        <p *ngIf="invalidCredentials" class="field-error" role="alert">
+          <mat-icon>error_outline</mat-icon> Invalid email or password.
         </p>
 
         <div class="form-row-end">

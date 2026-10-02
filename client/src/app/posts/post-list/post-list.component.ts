@@ -12,7 +12,7 @@ import { PageEvent } from '@angular/material/paginator';
 import { ActivatedRoute } from '@angular/router';
 import { DownloadService } from 'src/app/services/download.service';
 import { ToastrService } from 'ngx-toastr';
-import jsPDF from 'jspdf';
+import { downloadTripPdf } from 'src/app/shared/trip-pdf';
 import { confirmDelete } from 'src/app/shared/confirm-dialog';
 import { formatDateRange } from 'src/app/shared/date-range';
 import { PLACE_VALUES, PlaceValue, placeValueMeta } from 'src/app/shared/place-values';
@@ -54,6 +54,7 @@ export class PostListComponent implements OnInit, OnDestroy {
   tripEnd: Date | null = null;
   timing: TripTiming | null = null;
   isLoading: boolean = true;
+  pdfBusy = false;
 
   // Itinerary view: grouped by day, or the card grid
   viewMode: 'timeline' | 'grid' = 'timeline';
@@ -302,120 +303,28 @@ export class PostListComponent implements OnInit, OnDestroy {
     }
   }
 
-  convertToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (err) => reject(err);
-    });
-  }
-
+  // Builds and downloads the styled trip journal PDF
   async downloadPosts() {
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-  
-    const margin = 10;
-    const colWidth = (pageWidth - margin * 3) / 2;
-    const imageHeight = 35;
-    const lineHeight = 4;
-    const titleLineHeight = 5;
-    const bottomPadding = 6;
-  
-    let y = margin;
-
-    // Destination heading at the top of the document 
-    const heading = this.tripTitle || ((this.tripName && this.tripName !== "unknown-trip")
-      ? this.tripName.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-      : "My Trip");
-    pdf.setFontSize(22);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(10, 28, 56); 
-    pdf.text(heading, pageWidth / 2, y + 6, { align: "center" });
-    y += 18;
-
-    const computeHeight = (post: any) => {
-      if (!post) return 0;
-      pdf.setFontSize(12);
-      const titleLines = pdf.splitTextToSize(post.title || "Untitled", colWidth - 10).length;
-      pdf.setFontSize(10);
-      const captionLines = pdf.splitTextToSize(post.caption || "", colWidth - 10).length;
-      return imageHeight + 20 + titleLines * titleLineHeight + captionLines * lineHeight + bottomPadding + 10;
-    };
-
-    let cardHeight = 0;
-    for (const post of this.postListArray) {
-      cardHeight = Math.max(cardHeight, computeHeight(post));
+    if (this.pdfBusy || !this.postListArray.length) {
+      return;
     }
-
-    for (let i = 0; i < this.postListArray.length; i += 2) {
-      const leftPost = this.postListArray[i];
-      const rightPost = this.postListArray[i + 1];
-
-      if (y + cardHeight > pageHeight - margin) {
-        pdf.addPage();
-        y = margin;
-      }
-
-      const drawCard = async (post: any, x: number) => {
-        if (!post) return;
-  
-        let imgData: string | undefined;
-        if (post.image instanceof File) imgData = await this.convertToBase64(post.image);
-        else if (typeof post.image === "string") imgData = post.image;
-  
-        pdf.setDrawColor(180);
-        pdf.setLineWidth(0.4);
-        pdf.roundedRect(x, y, colWidth, cardHeight, 3, 3, "S");
-  
-        if (imgData) {
-          try {
-            pdf.addImage(imgData, "JPEG", x + 5, y + 5, colWidth - 10, imageHeight);
-          } catch {
-            pdf.text("Image load failed", x + 5, y + 10);
-          }
-        } else {
-          pdf.text("No Image Added", x + colWidth / 2, y + imageHeight / 2 + 5, { align: "center" });
-        }
-  
-        pdf.setFontSize(12);
-        pdf.setFont("helvetica", "bold");
-        pdf.setTextColor(10, 28, 56); 
-        const wrappedTitle = pdf.splitTextToSize(post.title || "Untitled", colWidth - 10);
-        let titleY = y + imageHeight + 12;
-        wrappedTitle.forEach((line: string) => {
-          pdf.text(line, x + 5, titleY);
-          titleY += titleLineHeight;
-        });
-  
-        const caption = post.caption || "";
-        pdf.setFont("helvetica", "normal");
-        pdf.setTextColor(0, 0, 0);
-        const wrapped = pdf.splitTextToSize(caption, colWidth - 10);
-  
-        pdf.setFontSize(10);
-        let captionY = titleY + 4;
-  
-        wrapped.forEach((line: string) => {
-          pdf.text(line, x + 5, captionY);
-          captionY += lineHeight;
-        });
-  
-        if (post.date) {
-          pdf.setFontSize(9);
-          const dateY = captionY + bottomPadding;
-          pdf.text(`Date: ${new Date(post.date).toDateString()}`, x + 5, dateY);
-        }
-      };
-  
-      await drawCard(leftPost, margin);
-      await drawCard(rightPost, margin * 2 + colWidth);
-
-      y += cardHeight + margin;
+    this.pdfBusy = true;
+    try {
+      await downloadTripPdf({
+        title: this.tripTitle || 'My trip',
+        dates: this.tripDates,
+        timing: this.timing?.when || '',
+        status: this.timing ? statusLabel(this.timing.status) : '',
+        days: this.timing?.days || 0,
+        cover: this.tripCover,
+        posts: this.postListArray,
+        timeline: this.timelineDays,
+        fileName: `${this.tripName && this.tripName !== 'unknown-trip' ? this.tripName : 'trip'}-journal.pdf`,
+      });
+    } catch {
+      this.toastr.error('The PDF couldn\'t be created. Please try again.', 'Download failed');
+    } finally {
+      this.pdfBusy = false;
     }
-  
-    pdf.save(`posts-${this.tripName}.pdf`);
-  }    
-  
+  }
 }

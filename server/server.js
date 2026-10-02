@@ -314,15 +314,20 @@ app.post('/api/users', upload.none(), async (req, res) => {
   }
 });
 
+// Compared against when the email doesn't exist, so both failure cases take the same time.
+const DUMMY_HASH = bcrypt.hashSync('journhive-dummy-password', 10);
+
 app.post('/api/login', upload.none(), async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
-    if (!user) return res.status(400).json({ message: 'User not found' });
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ message: 'Incorrect password' });
+    // Same response for an unknown email and a wrong password, so callers can't
+    // tell which emails have accounts (user enumeration).
+    const match = await bcrypt.compare(password || '', user ? user.password : DUMMY_HASH);
+    if (!user || !match) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
 
     const token = generateToken(user);
     res.status(200).json({ message: 'Login successful', user, token });
@@ -336,7 +341,9 @@ app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     const user = await User.findOne({ email });
 
-    if (!user) return res.status(404).json({ message: 'Email not found' });
+    // Respond the same whether or not the account exists (prevents user enumeration).
+    const genericMessage = 'If an account exists for this email, a password reset link has been sent';
+    if (!user) return res.status(200).json({ message: genericMessage });
 
     // Generate a random token; email the raw value but store only its hash.
     const rawToken = crypto.randomBytes(32).toString('hex');
@@ -351,7 +358,7 @@ app.post('/api/forgot-password', async (req, res) => {
 
     const previewUrl = await sendResetEmail(user.email, resetUrl);
 
-    res.status(200).json({ message: 'Password reset link sent', previewUrl });
+    res.status(200).json({ message: genericMessage, previewUrl });
   } catch (error) {
     console.error('Forgot-password failed:', error.message);
     res.status(500).json({ message: 'Failed to process request', error });

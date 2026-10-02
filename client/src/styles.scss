@@ -357,6 +357,11 @@ app-root {
   animation: spin 0.7s linear infinite;
 }
 
+.spinner.dark {
+  border-color: rgba(16, 62, 126, 0.2);
+  border-top-color: var(--c-primary);
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
